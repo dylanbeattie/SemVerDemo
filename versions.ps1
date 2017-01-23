@@ -14,7 +14,11 @@ $minor_version = $txt_version['minor'].Value
 
 # Parse current version number by looking for v1.2.3 tags applied to master branch in Git
 (git fetch --tags)
-$matches = (git describe master --tags --long --match v[0-9]*.[0-9]*.[0-9]* | Select-String -pattern '(?<major>[0-9]+)\.(?<minor>[0-9]+).(?<patch>[0-9]+)-(?<commitCount>[0-9]+)-(?<hash>[a-z0-9]+)')
+$tags_list = (git tag --sort=v:refname)
+$latest_tag = $tags_list.Split([Environment]::NewLine) | Select-Object -Last 1
+Write-Host $latest_tag
+
+$matches = Select-String -InputObject $latest_tag -pattern 'v(?<major>[0-9]+)\.(?<minor>[0-9]+).(?<patch>[0-9]+)'
 
 # set major.minor.patch to last tagged version if it exists - otherwise set to 0.0.0
 if ($matches.Matches -ne $null -and $matches.Matches.Groups.Count -gt 0) {    
@@ -32,8 +36,11 @@ Write-Host "Tag version: $git_major_version.$git_minor_version.$git_patch_versio
 Write-Host "Pull request: $branch"
 Write-Host "Is pull request? $is_pull_request"
 
+$commit_count = (git rev-list "$latest_tag..HEAD" --count)
+Write-Host "$commit_count commits to master since $latest_tag"
+
 if ($git_major_version -eq $major_version -and $git_minor_version -eq $minor_version) {
-    $patch_version =  1 + $git_patch_version;
+    $patch_version =  [int]$commit_count + [int]$git_patch_version;
 } else {
     $patch_version = 0
 }
